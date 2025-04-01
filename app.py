@@ -68,6 +68,16 @@ league_matchup_dfs = {}
 league_tables_raw = {}
 match_schedule = []
 
+# 対戦順の制御（例: 3ペア -> 1-2,1-3,2-3 / 4ペア -> 1-2,3-4,1-3,2-4,1-4,2-3）
+def generate_ordered_matches(pairs):
+    if len(pairs) == 3:
+        return [(pairs[0], pairs[1]), (pairs[0], pairs[2]), (pairs[1], pairs[2])]
+    elif len(pairs) == 4:
+        return [(pairs[0], pairs[1]), (pairs[2], pairs[3]), (pairs[0], pairs[2]),
+                (pairs[1], pairs[3]), (pairs[0], pairs[3]), (pairs[1], pairs[2])]
+    else:
+        return list(itertools.combinations(pairs, 2))
+
 for league_name, df in league_pair_data.items():
     if df.empty:
         continue
@@ -95,11 +105,11 @@ for league_name, df in league_pair_data.items():
         st.dataframe(df_table, use_container_width=True)
         league_tables_raw[league_name] = df_table
 
-        combos = list(itertools.combinations(pair_labels, 2))
-        df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
+        ordered_combos = generate_ordered_matches(pair_labels)
+        df_matches = pd.DataFrame(ordered_combos, columns=["ペア1", "ペア2"])
         league_matchup_dfs[league_name] = df_matches
 
-        for match in combos:
+        for match in ordered_combos:
             match_schedule.append({"リーグ": league_name, "ペア1": match[0], "ペア2": match[1]})
 
     except Exception as e:
@@ -117,8 +127,8 @@ if st.button("スコアシートPDFを出力"):
         output_pdf = fitz.open()
 
         coords = {
-            "no1": (92, 181), "team1": (213, 181), "p1_1": (187, 214), "p1_2": (187, 250),
-            "no2": (361, 180), "team2": (477, 180), "p2_1": (453, 214), "p2_2": (452, 250)
+            "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
+            "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
         }
 
         def get_info(code):
