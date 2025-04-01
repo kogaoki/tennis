@@ -119,7 +119,7 @@ if st.button("スコアシートPDFをダウンロード"):
         output_pdf = fitz.open()
 
         # フォントを一時ファイルとして保存 → fitz.Font で読み込む
-        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
+        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/NotoSansJP-VariableFont_wght.ttf"
         font_response = requests.get(font_url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
             tmp_font_file.write(font_response.content)
