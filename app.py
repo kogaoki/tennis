@@ -63,8 +63,11 @@ for i, league in enumerate(league_assignments):
     headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(league))] + ["順位"]
     table_data = []
     for idx, pair in enumerate(league, start=1):
-        name_team = pair.split("：") if "：" in pair else [pair, ""]
-        row = [idx, name_team[1] if len(name_team) > 1 else "", name_team[0]]
+        if isinstance(pair, str) and "：" in pair:
+            team, players = pair.split("：", 1)
+        else:
+            team, players = pair, ""
+        row = [idx, players, team]
         for j in range(1, len(league)+1):
             row.append("×" if idx == j else "")
         row.append("")  # 順位欄
