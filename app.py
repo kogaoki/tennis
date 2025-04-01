@@ -177,23 +177,23 @@ if st.button("スコアシートPDFをダウンロード"):
             c = canvas.Canvas(overlay_buffer, pagesize=A4)
             height = A4[1]
 
-            def draw_text(x, y, text, center=False):
-                c.setFont("CustomJP", 9)
+            def draw_text(x, y, text, center=False, fontsize=9):
+                c.setFont("CustomJP", fontsize)
                 if center:
                     text_width = c.stringWidth(text, "CustomJP", 12)
                     x -= text_width / 2
                 c.drawString(x, height - y, text)
 
-            draw_text(coords["team1"][0], coords["team1"][1], team1, center=True)
-            draw_text(coords["p1_1"][0], coords["p1_1"][1], p1_1)
+            draw_text(coords["team1"][0] + 10, coords["team1"][1], team1, center=True, fontsize=7)
+            draw_text(coords["p1_1"][0], coords["p1_1"][1], p1_1, fontsize=12)
             if p1_2:
-                draw_text(coords["p1_2"][0], coords["p1_2"][1], p1_2)
+                draw_text(coords["p1_2"][0], coords["p1_2"][1], p1_2, fontsize=12)
             draw_text(coords["no1"][0], coords["no1"][1], match["ペア1"])
 
-            draw_text(coords["team2"][0], coords["team2"][1], team2, center=True)
-            draw_text(coords["p2_1"][0], coords["p2_1"][1], p2_1)
+            draw_text(coords["team2"][0] + 10, coords["team2"][1], team2, center=True, fontsize=7)
+            draw_text(coords["p2_1"][0], coords["p2_1"][1], p2_1, fontsize=12)
             if p2_2:
-                draw_text(coords["p2_2"][0], coords["p2_2"][1], p2_2)
+                draw_text(coords["p2_2"][0], coords["p2_2"][1], p2_2, fontsize=12)
             draw_text(coords["no2"][0], coords["no2"][1], match["ペア2"])
 
             c.showPage()
@@ -215,3 +215,4 @@ if st.button("スコアシートPDFをダウンロード"):
 
     except Exception as e:
         st.error(f"PDF出力中にエラーが発生しました: {e}")
+
