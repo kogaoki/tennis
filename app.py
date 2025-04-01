@@ -118,11 +118,12 @@ if st.button("スコアシートPDFをダウンロード"):
         output_pdf = fitz.open()
 
         # フォントを一時ファイルとして保存 → fitz.Font で読み込む
-        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
+         font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
         font_response = requests.get(font_url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
-            tmp_font_file.write(font_response.content)
-            font_path = tmp_font_file.name
+    tmp_font_file.write(font_response.content)
+    font_path = tmp_font_file.name
+custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
 
         # 日本語フォントを登録
         custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
