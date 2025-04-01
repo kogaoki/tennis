@@ -165,7 +165,7 @@ if st.button("スコアシートPDFをダウンロード"):
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
             def draw_textbox(coord, text):
-                rect = fitz.Rect(coord[0], coord[1], coord[0]+200, coord[1]+20)
+                rect = fitz.Rect(coord[0], coord[1], coord[0]+300, coord[1]+40)
                 page.insert_textbox(rect, text, fontsize=12)
 
             draw_textbox(coords["team1"], team1)
