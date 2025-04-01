@@ -42,16 +42,31 @@ with right:
     st.write("### リーグ対戦表の生成")
     league_assignments = assign_pairs_to_leagues(pair_info, num_leagues)
     league_matchup_dfs = {}
+    league_tables_raw = {}  # 対戦表の元データ保持用
 
-    # 各リーグの対戦表を表示
-    for i, pair_labels in enumerate(league_assignments):
+    # 各リーグの対戦表を表示（見た目：Excel準拠）
+    for i, league in enumerate(league_assignments):
         league_name = chr(ord('A') + i)
-        combos = list(itertools.combinations(pair_labels, 2))
-        df = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
-        league_matchup_dfs[league_name] = df
+        st.subheader(f"{league_name}リーグ 対戦表プレビュー")
 
-        st.subheader(f"リーグ {league_name}（{len(df)+1}ペア）")
-        st.dataframe(df)
+        headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(league))] + ["順位"]
+        table_data = []
+        for idx, pair in enumerate(league, start=1):
+            name_team = pair.split("：") if "：" in pair else [pair, ""]
+            row = [idx, name_team[1] if len(name_team) > 1 else "", name_team[0]]
+            for j in range(1, len(league)+1):
+                row.append("×" if idx == j else "")
+            row.append("")  # 順位欄
+            table_data.append(row)
+
+        df_table = pd.DataFrame(table_data, columns=headers)
+        st.dataframe(df_table, use_container_width=True)
+        league_tables_raw[league_name] = df_table.copy()
+
+        # 対戦組み合わせも従来通り保持
+        combos = list(itertools.combinations(league, 2))
+        df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
+        league_matchup_dfs[league_name] = df_matches
 
     # リーグ順位の入力
     st.write("### リーグ順位の入力")
@@ -88,65 +103,3 @@ with right:
     st.write("### トーナメント出場ペア一覧")
     for p in selected_pairs:
         st.markdown(f"- {p}")
-
-    # 書式設定
-    center = Alignment(horizontal="center", vertical="center")
-    border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                    top=Side(style='thin'), bottom=Side(style='thin'))
-    bold = Font(bold=True)
-
-    # リーグ対戦表Excel出力
-    st.write("### リーグ対戦表のExcel出力（書式付き）")
-    if st.button("リーグ対戦表をExcel出力"):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "全リーグまとめ"
-
-        current_row = 1
-        for i, league in enumerate(league_assignments):
-            league_name = chr(ord('A') + i)
-
-            # 見出し行
-            ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=7)
-            cell = ws.cell(row=current_row, column=1, value=f"{league_name}リーグ")
-            cell.alignment = center
-            cell.font = Font(bold=True, size=14)
-            current_row += 1
-
-            # ヘッダー
-            headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(league))] + ["順位"]
-            for col, header in enumerate(headers, start=1):
-                c = ws.cell(row=current_row, column=col, value=header)
-                c.alignment = center
-                c.font = bold
-                c.border = border
-            current_row += 1
-
-            # データ行
-            for idx, pair in enumerate(league, start=1):
-                name_team = pair.split("：") if "：" in pair else [pair, ""]
-                row = [idx, name_team[1] if len(name_team) > 1 else "", name_team[0]]
-                for j in range(1, len(league)+1):
-                    row.append("×" if idx == j else "")
-                row.append("")  # 順位欄
-
-                for col, val in enumerate(row, start=1):
-                    cell = ws.cell(row=current_row, column=col, value=val)
-                    cell.alignment = center
-                    cell.border = border
-                current_row += 1
-
-            # スペース空け
-            current_row += 1
-
-        # 列幅調整
-        ws.column_dimensions["B"].width = 16
-        ws.column_dimensions["C"].width = 18
-
-        # 出力
-        excel_data = BytesIO()
-        wb.save(excel_data)
-        st.download_button(label="リーグ対戦表（書式付き）をダウンロード",
-                           data=excel_data.getvalue(),
-                           file_name="league_tables.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
