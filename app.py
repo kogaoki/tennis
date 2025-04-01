@@ -5,9 +5,14 @@ import requests
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Side, Font
-import fitz
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.units import mm
 import tempfile
 import pathlib
+
 
 st.set_page_config(layout="wide")
 st.title("大会運営システム：リーグ対戦表＆スコアシート生成")
@@ -112,18 +117,18 @@ if st.button("Excelダウンロード用にエクスポート"):
 # スコアシートPDF出力
 if st.button("スコアシートPDFをダウンロード"):
     try:
-        github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
-        response = requests.get(github_url)
-        pdf_template = fitz.open(stream=response.content, filetype="pdf")
-        output_pdf = fitz.open()
-
         font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/NotoSansJP-VariableFont_wght.ttf"
         font_response = requests.get(font_url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
             tmp_font_file.write(font_response.content)
             tmp_font_file.flush()
-            font_path = pathlib.Path(tmp_font_file.name)
-        custom_font_path = str(font_path)
+            font_path = tmp_font_file.name
+
+        pdfmetrics.registerFont(TTFont("CustomJP", font_path))
+
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
 
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
@@ -158,30 +163,30 @@ if st.button("スコアシートPDFをダウンロード"):
             st.stop()
 
         for match in match_schedule:
-            output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
-            page = output_pdf[-1]
-
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            def draw_textbox(coord, text):
-                rect = fitz.Rect(coord[0], coord[1], coord[0]+300, coord[1]+40)
-                page.insert_textbox(rect, text, fontsize=12)
+            def draw_text(x, y, text):
+                c.setFont("CustomJP", 12)
+                c.drawString(x, height - y, text)
 
-            draw_textbox(coords["team1"], team1)
-            draw_textbox(coords["p1_1"], p1_1)
+            draw_text(coords["team1"][0], coords["team1"][1], team1)
+            draw_text(coords["p1_1"][0], coords["p1_1"][1], p1_1)
             if p1_2:
-                draw_textbox(coords["p1_2"], p1_2)
-            draw_textbox(coords["no1"], match["ペア1"])
+                draw_text(coords["p1_2"][0], coords["p1_2"][1], p1_2)
+            draw_text(coords["no1"][0], coords["no1"][1], match["ペア1"])
 
-            draw_textbox(coords["team2"], team2)
-            draw_textbox(coords["p2_1"], p2_1)
+            draw_text(coords["team2"][0], coords["team2"][1], team2)
+            draw_text(coords["p2_1"][0], coords["p2_1"][1], p2_1)
             if p2_2:
-                draw_textbox(coords["p2_2"], p2_2)
-            draw_textbox(coords["no2"], match["ペア2"])
+                draw_text(coords["p2_2"][0], coords["p2_2"][1], p2_2)
+            draw_text(coords["no2"][0], coords["no2"][1], match["ペア2"])
 
-        pdf_bytes = output_pdf.write()
-        st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
+            c.showPage()
+
+        c.save()
+        buffer.seek(0)
+        st.download_button("PDFスコアシートをダウンロード", buffer, file_name="score_sheets.pdf", mime="application/pdf")
 
     except Exception as e:
         st.error(f"PDF出力中にエラーが発生しました: {e}")
