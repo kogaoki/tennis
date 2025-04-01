@@ -95,7 +95,7 @@ if st.button("Excelダウンロード用にエクスポート"):
             pair = row["ペア番号"]
             team = row["所属"]
             name = f"{row['選手1']}・{row['選手2']}" if row["選手2"] else row["選手1"]
-            row_data = [i + 1, name, team] + ["×" if j == i else "" for j in range(len(df))] + [""]
+            row_data = [i + 1, name, team] + ["/" if j == i else "" for j in range(len(df))] + [""]
             for col, val in enumerate(row_data, start=1):
                 cell = ws.cell(row=current_row, column=col, value=val)
                 cell.alignment = center
@@ -106,3 +106,69 @@ if st.button("Excelダウンロード用にエクスポート"):
     output = BytesIO()
     wb.save(output)
     st.download_button("リーグ対戦表（Excel）をダウンロード", output.getvalue(), file_name="リーグ対戦表.xlsx")
+
+# スコアシートPDF出力（復活）
+if st.button("スコアシートPDFを出力"):
+    try:
+        github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
+        response = requests.get(github_url)
+        pdf_template = fitz.open(stream=response.content, filetype="pdf")
+        output_pdf = fitz.open()
+
+        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipaexg.ttf"
+        font_response = requests.get(font_url)
+        font_bytes = BytesIO(font_response.content)
+        custom_font = fitz.Font(fontfile=font_bytes)
+
+        coords = {
+            "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
+            "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
+        }
+
+        def get_info(code):
+            for league_df in league_pair_data.values():
+                row = league_df[league_df["ペア番号"] == code]
+                if not row.empty:
+                    team = row.iloc[0]["所属"]
+                    p1 = row.iloc[0]["選手1"]
+                    p2 = row.iloc[0]["選手2"]
+                    return team, p1, p2
+            return "", "", ""
+
+        match_schedule = []
+        for league_name, df in league_pair_data.items():
+            pairs = df["ペア番号"].tolist()
+            if len(pairs) == 3:
+                ordered = [(pairs[0], pairs[1]), (pairs[0], pairs[2]), (pairs[1], pairs[2])]
+            elif len(pairs) == 4:
+                ordered = [(pairs[0], pairs[1]), (pairs[2], pairs[3]), (pairs[0], pairs[2]),
+                           (pairs[1], pairs[3]), (pairs[0], pairs[3]), (pairs[1], pairs[2])]
+            else:
+                ordered = list(itertools.combinations(pairs, 2))
+            for m in ordered:
+                match_schedule.append({"リーグ": league_name, "ペア1": m[0], "ペア2": m[1]})
+
+        for match in match_schedule:
+            output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
+            page = output_pdf[-1]
+
+            team1, p1_1, p1_2 = get_info(match["ペア1"])
+            team2, p2_1, p2_2 = get_info(match["ペア2"])
+
+            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["team1"], team1, fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["p1_1"], p1_1, fontsize=12, fontname=custom_font.name)
+            if p1_2:
+                page.insert_text(coords["p1_2"], p1_2, fontsize=12, fontname=custom_font.name)
+
+            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["team2"], team2, fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["p2_1"], p2_1, fontsize=12, fontname=custom_font.name)
+            if p2_2:
+                page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname=custom_font.name)
+
+        pdf_bytes = output_pdf.write()
+        st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
+
+    except Exception as e:
+        st.error(f"PDF出力中にエラーが発生しました: {e}")
