@@ -122,7 +122,7 @@ if st.button("スコアシートPDFをダウンロード"):
             tmp_font_file.write(font_response.content)
             font_path = tmp_font_file.name
 
-        custom_font = fitz.Font(fontfile=font_path)
+        custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
 
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
@@ -159,17 +159,17 @@ if st.button("スコアシートPDFをダウンロード"):
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, fontname=custom_font.name)
-            page.insert_text(coords["team1"], team1, fontsize=12, fontname=custom_font.name)
-            page.insert_text(coords["p1_1"], p1_1, fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, ffontname="ipagothic")
+            page.insert_text(coords["team1"], team1, fontsize=12, ffontname="ipagothic")
+            page.insert_text(coords["p1_1"], p1_1, fontsize=12, ffontname="ipagothic")
             if p1_2:
-                page.insert_text(coords["p1_2"], p1_2, fontsize=12, fontname=custom_font.name)
+                page.insert_text(coords["p1_2"], p1_2, fontsize=12, ffontname="ipagothic")
 
-            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, fontname=custom_font.name)
-            page.insert_text(coords["team2"], team2, fontsize=12, fontname=custom_font.name)
-            page.insert_text(coords["p2_1"], p2_1, fontsize=12, fontname=custom_font.name)
+            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, ffontname="ipagothic")
+            page.insert_text(coords["team2"], team2, fontsize=12, ffontname="ipagothic")
+            page.insert_text(coords["p2_1"], p2_1, fontsize=12, ffontname="ipagothic")
             if p2_2:
-                page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname=custom_font.name)
+                page.insert_text(coords["p2_2"], p2_2, fontsize=12, ffontname="ipagothic")
 
         pdf_bytes = output_pdf.write()
         st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
