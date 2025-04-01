@@ -3,3 +3,4 @@ pandas
 openpyxl
 xlsxwriter
 fitz
+PyMuPDF==1.22.3
