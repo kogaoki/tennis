@@ -184,13 +184,13 @@ if st.button("スコアシートPDFをダウンロード"):
                     x -= text_width / 2
                 c.drawString(x, height - y, text)
 
-            draw_text(coords["team1"][0], coords["team1"][1], team1, center=True, fontsize=8)
+            draw_text(coords["team1"][0] + 5 , coords["team1"][1], team1, center=True, fontsize=8)
             draw_text(coords["p1_1"][0], coords["p1_1"][1], p1_1, fontsize=12)
             if p1_2:
                 draw_text(coords["p1_2"][0], coords["p1_2"][1], p1_2, fontsize=12)
             draw_text(coords["no1"][0], coords["no1"][1], match["ペア1"])
 
-            draw_text(coords["team2"][0], coords["team2"][1], team2, center=True, fontsize=8)
+            draw_text(coords["team2"][0]　+ 5 , coords["team2"][1], team2, center=True, fontsize=8)
             draw_text(coords["p2_1"][0], coords["p2_1"][1], p2_1, fontsize=12)
             if p2_2:
                 draw_text(coords["p2_2"][0], coords["p2_2"][1], p2_2, fontsize=12)
