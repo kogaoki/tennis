@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import itertools
 from io import BytesIO
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Side, Font
 
 st.set_page_config(layout="wide")
@@ -18,7 +18,6 @@ remainder = total_pairs % pairs_per_league
 
 st.sidebar.markdown(f"**→ {base_league_count}リーグ + {remainder}ペア余り**")
 
-# 余りが出る場合、どこに追加するか選ぶ
 extra_league_targets = []
 if remainder > 0:
     st.sidebar.write("### 余りの振り分け先")
@@ -32,15 +31,12 @@ if remainder > 0:
     if len(extra_league_targets) != remainder:
         st.stop()
 
-# リーグ構成
 league_assignments = []
-pair_no = 1
 for i in range(base_league_count):
     league_size = pairs_per_league + (1 if chr(ord('A') + i) in extra_league_targets else 0)
     league_name = chr(ord('A') + i)
     league_assignments.append([f"{league_name}{j+1}" for j in range(league_size)])
 
-# 各リーグのペア入力欄
 st.write("### リーグごとの選手情報入力")
 league_pair_data = {}
 
@@ -65,10 +61,10 @@ for i, league in enumerate(league_assignments):
             st.error(f"{league_name}リーグの入力中にエラーが発生しました: {e}")
             continue
 
-# 対戦表作成・表示
 st.write("### リーグ対戦表の生成")
 league_matchup_dfs = {}
 league_tables_raw = {}
+match_schedule = []
 
 for league_name, df in league_pair_data.items():
     if df.empty:
@@ -94,7 +90,6 @@ for league_name, df in league_pair_data.items():
             table_data.append(row)
 
         df_table = pd.DataFrame(table_data, columns=headers)
-
         st.dataframe(df_table, use_container_width=True)
         league_tables_raw[league_name] = df_table
 
@@ -102,38 +97,54 @@ for league_name, df in league_pair_data.items():
         df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
         league_matchup_dfs[league_name] = df_matches
 
+        for match in combos:
+            match_schedule.append({"リーグ": league_name, "ペア1": match[0], "ペア2": match[1]})
+
     except Exception as e:
         st.error(f"{league_name}リーグの対戦表生成中にエラーが発生しました: {e}")
         continue
 
-# トーナメント条件分岐の追加
-st.write("### 決勝方式の選択")
-final_mode = st.radio("決勝の形式を選択", ["トーナメント", "リーグ戦"])
-rank_limit = st.number_input("各リーグから何位まで出場するか", min_value=1, max_value=5, value=1, step=1)
+st.session_state["match_schedule"] = match_schedule
+st.session_state["league_pair_data"] = league_pair_data
 
-# トーナメント構成の生成
-qualified_pairs = []
-for league_name, df in league_pair_data.items():
-    for i in range(min(rank_limit, len(df))):
-        pair_label = df["ペア番号"].iloc[i]
-        qualified_pairs.append(f"{pair_label}（{league_name}{i+1}位）")
+if st.button("スコアシート（雛形あり）を出力"):
+    template_wb = load_workbook("/mnt/data/scoresheet.xlsx")
+    template_ws = template_wb.active
+    output_wb = Workbook()
+    output_wb.remove(output_wb.active)
 
-st.write("### 決勝進出ペア一覧")
-for p in qualified_pairs:
-    st.markdown(f"- {p}")
+    for idx, match in enumerate(st.session_state["match_schedule"]):
+        sheet_name = f"{match['リーグ']}_{idx+1}"
+        ws = output_wb.create_sheet(sheet_name)
+        for row in template_ws.iter_rows():
+            for cell in row:
+                ws[cell.coordinate].value = cell.value
 
-# 仮のトーナメント表またはリーグ戦表示（シンプルなテキスト）
-if final_mode == "トーナメント":
-    st.write("### トーナメント表（仮）")
-    st.markdown("組み合わせは自動生成予定。準決勝、決勝など表示可能。")
-    for i in range(0, len(qualified_pairs), 2):
-        if i+1 < len(qualified_pairs):
-            st.write(f"{qualified_pairs[i]} vs {qualified_pairs[i+1]}")
-        else:
-            st.write(f"{qualified_pairs[i]}（シード）")
-else:
-    st.write("### 決勝リーグ戦（仮）")
-    if len(qualified_pairs) >= 2:
-        st.dataframe(pd.DataFrame(itertools.combinations(qualified_pairs, 2), columns=["ペア1", "ペア2"]))
-    else:
-        st.info("対戦ペアが2組以上必要です。")
+        def get_info(code):
+            for league_df in st.session_state["league_pair_data"].values():
+                row = league_df[league_df["ペア番号"] == code]
+                if not row.empty:
+                    team = row.iloc[0]["所属"]
+                    p1 = row.iloc[0]["選手1"]
+                    p2 = row.iloc[0]["選手2"]
+                    return team, p1, p2
+            return "", "", ""
+
+        team1, p1_1, p1_2 = get_info(match["ペア1"])
+        team2, p2_1, p2_2 = get_info(match["ペア2"])
+
+        ws["D9"] = match["ペア1"]
+        ws["K9"] = team1
+        ws["G11"] = p1_1
+        if p1_2:
+            ws["G14"] = p1_2
+
+        ws["X9"] = match["ペア2"]
+        ws["AE9"] = team2
+        ws["AA11"] = p2_1
+        if p2_2:
+            ws["AA14"] = p2_2
+
+    bio = BytesIO()
+    output_wb.save(bio)
+    st.download_button("スコアシートExcelをダウンロード", bio.getvalue(), file_name="score_sheets.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
