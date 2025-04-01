@@ -11,6 +11,7 @@ st.title("大会運営システム：リーグ対戦表＆スコアシート生�
 st.sidebar.header("設定")
 total_pairs = st.sidebar.number_input("総ペア数", min_value=2, max_value=100, value=13, step=1)
 pairs_per_league = st.sidebar.selectbox("1リーグに入れるペア数", options=[2, 3, 4, 5], index=2)
+court_count = st.sidebar.number_input("使用コート数（進行表用）", min_value=1, max_value=10, value=2, step=1)
 
 base_league_count = total_pairs // pairs_per_league
 remainder = total_pairs % pairs_per_league
@@ -88,27 +89,11 @@ for league_name, df in league_pair_data.items():
             for j in range(len(pair_labels)):
                 row.append("×" if j == idx else "")
             row.append("")
-            # 検証：行の長さを確認し、不足していたら補完
             while len(row) < len(headers):
                 row.append("")
             table_data.append(row)
 
         df_table = pd.DataFrame(table_data, columns=headers)
-
-        # カラム順序と幅・整列調整用のCSS
-        st.markdown(
-            """
-            <style>
-            [data-testid="stDataFrame"] table td:nth-child(1) {
-                text-align: left !important;
-                min-width: 30px;
-                width: 40px;
-                max-width: 50px;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
 
         st.dataframe(df_table, use_container_width=True)
         league_tables_raw[league_name] = df_table
