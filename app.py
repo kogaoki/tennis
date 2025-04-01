@@ -118,11 +118,8 @@ if st.button("スコアシートPDFをダウンロード"):
 
         font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
         font_response = requests.get(font_url)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
-            tmp_font_file.write(font_response.content)
-            font_path = tmp_font_file.name
-
-        custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
+        font_bytes = BytesIO(font_response.content)
+        custom_font = fitz.Font(fontfile=font_bytes, fontname="ipagothic")
 
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
