@@ -12,20 +12,24 @@ st.sidebar.header("設定")
 total_pairs = st.sidebar.number_input("総ペア数", min_value=2, max_value=100, value=13, step=1)
 num_leagues = st.sidebar.number_input("リーグ数", min_value=1, max_value=26, value=4, step=1)
 
-# 増やすリーグを選択
-extra_league_indices = []
-if total_pairs % num_leagues != 0:
-    st.sidebar.write("### 余りペアの振り分け先を選択")
-    extra_count = total_pairs % num_leagues
-    league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
-    extra_league_indices = st.sidebar.multiselect(
-        f"{extra_count}つのリーグに1ペアずつ追加してください:", league_labels, max_selections=extra_count, default=league_labels[:extra_count]
-    )
+# 何ペアリーグにするか手動設定
+st.sidebar.write("### 各リーグのペア数（任意）")
+manual_league_sizes = {}
+manual_total = 0
+league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
+for label in league_labels:
+    size = st.sidebar.number_input(f"{label}リーグ", min_value=0, max_value=total_pairs, value=0, step=1, key=f"manual_{label}")
+    manual_league_sizes[label] = size
+    manual_total += size
+
+if manual_total > 0 and manual_total != total_pairs:
+    st.sidebar.warning(f"合計ペア数が {total_pairs} と一致していません（現在: {manual_total}）")
 
 # ペア情報入力（スプレッドシート形式）
 st.write("### ペア情報入力（所属・選手1・選手2）")
 def generate_empty_pair_df(n):
     return pd.DataFrame({
+        "ペアNo": [f"No.{i+1}" for i in range(n)],
         "所属": ["" for _ in range(n)],
         "選手1": ["" for _ in range(n)],
         "選手2": ["" for _ in range(n)]
@@ -34,7 +38,12 @@ def generate_empty_pair_df(n):
 if "pair_df" not in st.session_state or len(st.session_state.pair_df) != total_pairs:
     st.session_state.pair_df = generate_empty_pair_df(total_pairs)
 
-edited_df = st.data_editor(st.session_state.pair_df, num_rows="dynamic")
+edited_df = st.data_editor(
+    st.session_state.pair_df,
+    column_config={"ペアNo": st.column_config.TextColumn(disabled=True)},
+    use_container_width=True,
+    num_rows="dynamic"
+)
 st.session_state.pair_df = edited_df.copy()
 
 # ラベル生成（チーム：選手1・選手2）
@@ -46,20 +55,24 @@ for _, row in edited_df.iterrows():
     label = f"{team}：{name1}・{name2}" if team or name1 or name2 else "未入力ペア"
     pair_info.append(label)
 
-# ペアをリーグに割り当てる関数（指定リーグに余りを加える）
-def assign_pairs_to_leagues_custom(pairs, num_leagues, extra_leagues):
-    base = len(pairs) // num_leagues
+# ペアをリーグに割り当てる関数（手動優先 → 自動で振り分け）
+def assign_pairs_to_leagues_flexible(pairs, num_leagues, manual_sizes):
     leagues = []
     index = 0
-    for i in range(num_leagues):
-        league_label = chr(ord('A') + i)
-        league_size = base + (1 if league_label in extra_leagues else 0)
-        leagues.append(pairs[index:index+league_size])
-        index += league_size
+    league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
+    for label in league_labels:
+        size = manual_sizes.get(label, 0)
+        if size > 0:
+            leagues.append(pairs[index:index+size])
+            index += size
+        else:
+            base = len(pairs) // num_leagues
+            leagues.append(pairs[index:index+base])
+            index += base
     return leagues
 
 st.write("### リーグ対戦表の生成")
-league_assignments = assign_pairs_to_leagues_custom(pair_info, num_leagues, extra_league_indices)
+league_assignments = assign_pairs_to_leagues_flexible(pair_info, num_leagues, manual_league_sizes)
 league_matchup_dfs = {}
 league_tables_raw = {}  # 対戦表の元データ保持用
 
