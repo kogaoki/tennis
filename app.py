@@ -52,8 +52,17 @@ for i, league in enumerate(league_assignments):
         "選手1": ["" for _ in league],
         "選手2": ["" for _ in league]
     })
-    edited = st.data_editor(df, column_config={"ペア番号": st.column_config.TextColumn(disabled=True)}, use_container_width=True)
-    league_pair_data[league_name] = edited
+    with st.container():
+        try:
+            edited = st.data_editor(
+                df,
+                column_config={"ペア番号": st.column_config.TextColumn(disabled=True)},
+                use_container_width=True
+            )
+            league_pair_data[league_name] = edited
+        except Exception as e:
+            st.error(f"{league_name}リーグの入力中にエラーが発生しました: {e}")
+            continue
 
 # 対戦表作成・表示
 st.write("### リーグ対戦表の生成")
@@ -64,29 +73,34 @@ for league_name, df in league_pair_data.items():
     if df.empty:
         continue
 
-    st.subheader(f"{league_name}リーグ 対戦表プレビュー")
-    pair_labels = df["ペア番号"].tolist()
-    pair_names = [f"{row['所属']}：{row['選手1']}・{row['選手2']}" for _, row in df.iterrows()]
-    label_map = dict(zip(pair_labels, pair_names))
+    try:
+        st.subheader(f"{league_name}リーグ 対戦表プレビュー")
+        pair_labels = df["ペア番号"].tolist()
+        pair_names = [f"{row['所属']}：{row['選手1']}・{row['選手2']}" for _, row in df.iterrows()]
+        label_map = dict(zip(pair_labels, pair_names))
 
-    headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(pair_labels))] + ["順位"]
-    table_data = []
-    for idx, label in enumerate(pair_labels):
-        name = label_map.get(label, "")
-        team, players = (name.split("：", 1) if "：" in name else ("", name))
-        row = [idx + 1, players, team]
-        for j in range(len(pair_labels)):
-            row.append("×" if j == idx else "")
-        row.append("")
-        table_data.append(row)
+        headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(pair_labels))] + ["順位"]
+        table_data = []
+        for idx, label in enumerate(pair_labels):
+            name = label_map.get(label, "")
+            team, players = (name.split("：", 1) if "：" in name else ("", name))
+            row = [idx + 1, players, team]
+            for j in range(len(pair_labels)):
+                row.append("×" if j == idx else "")
+            row.append("")
+            table_data.append(row)
 
-    df_table = pd.DataFrame(table_data, columns=headers)
-    st.dataframe(df_table, use_container_width=True)
-    league_tables_raw[league_name] = df_table
+        df_table = pd.DataFrame(table_data, columns=headers)
+        st.dataframe(df_table, use_container_width=True)
+        league_tables_raw[league_name] = df_table
 
-    combos = list(itertools.combinations(pair_labels, 2))
-    df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
-    league_matchup_dfs[league_name] = df_matches
+        combos = list(itertools.combinations(pair_labels, 2))
+        df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
+        league_matchup_dfs[league_name] = df_matches
+
+    except Exception as e:
+        st.error(f"{league_name}リーグの対戦表生成中にエラーが発生しました: {e}")
+        continue
 
 # トーナメント出場形式の選択
 st.write("### トーナメント出場形式の選択")
