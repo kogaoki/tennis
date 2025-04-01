@@ -146,7 +146,7 @@ if st.button("スコアシートPDFをダウンロード"):
         for league_name, df in league_pair_data.items():
             pairs = df["ペア番号"].tolist()
             if len(pairs) == 3:
-                ordered = [(pairs[0], pairs[1]), (pairs[0], pairs[2]), (pairs[1], pairs[2])]
+                ordered = [(pairs[0], pairs[1]), (pairs[1], pairs[2]), (pairs[0], pairs[2])]
             elif len(pairs) == 4:
                 ordered = [(pairs[0], pairs[1]), (pairs[2], pairs[3]), (pairs[0], pairs[2]),
                            (pairs[1], pairs[3]), (pairs[0], pairs[3]), (pairs[1], pairs[2])]
@@ -181,13 +181,13 @@ if st.button("スコアシートPDFをダウンロード"):
                 c.setFont("CustomJP", 12)
                 c.drawString(x, height - y, text)
 
-            draw_text(coords["team1"][0], coords["team1"][1], team1)
+            draw_text(coords["team1"][0] - 10, coords["team1"][1], team1)
             draw_text(coords["p1_1"][0], coords["p1_1"][1], p1_1)
             if p1_2:
                 draw_text(coords["p1_2"][0], coords["p1_2"][1], p1_2)
             draw_text(coords["no1"][0], coords["no1"][1], match["ペア1"])
 
-            draw_text(coords["team2"][0], coords["team2"][1], team2)
+            draw_text(coords["team2"][0] - 10, coords["team2"][1], team2)
             draw_text(coords["p2_1"][0], coords["p2_1"][1], p2_1)
             if p2_2:
                 draw_text(coords["p2_2"][0], coords["p2_2"][1], p2_2)
