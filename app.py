@@ -111,25 +111,29 @@ if st.button("Excelダウンロード用にエクスポート"):
 # スコアシートPDF出力（復活）
 if st.button("スコアシートPDFをダウンロード"):
     try:
+        # スコアシートテンプレートPDFの読み込み
         github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
         response = requests.get(github_url)
         pdf_template = fitz.open(stream=response.content, filetype="pdf")
         output_pdf = fitz.open()
 
-font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
-font_response = requests.get(font_url)
+        # フォントを一時ファイルとして保存 → fitz.Font で読み込む
+        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipag.ttf"
+        font_response = requests.get(font_url)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
+            tmp_font_file.write(font_response.content)
+            font_path = tmp_font_file.name
 
-with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
-    tmp_font_file.write(font_response.content)
-    font_path = tmp_font_file.name
+        # 日本語フォントを登録
+        custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
 
-custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
-
+        # テキスト描画位置
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
             "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
         }
 
+        # ペア情報取得関数
         def get_info(code):
             for league_df in league_pair_data.values():
                 row = league_df[league_df["ペア番号"] == code]
@@ -140,6 +144,7 @@ custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
                     return team, p1, p2
             return "", "", ""
 
+        # 対戦カードの構築
         match_schedule = []
         for league_name, df in league_pair_data.items():
             pairs = df["ペア番号"].tolist()
@@ -153,6 +158,7 @@ custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
             for m in ordered:
                 match_schedule.append({"リーグ": league_name, "ペア1": m[0], "ペア2": m[1]})
 
+        # 各対戦ごとにPDFに書き込み
         for match in match_schedule:
             output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
             page = output_pdf[-1]
@@ -172,6 +178,7 @@ custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
             if p2_2:
                 page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname="ipagothic")
 
+        # ダウンロードボタンで出力
         pdf_bytes = output_pdf.write()
         st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
 
