@@ -25,81 +25,83 @@ for label in league_labels:
 if manual_total > 0 and manual_total != total_pairs:
     st.sidebar.warning(f"合計ペア数が {total_pairs} と一致していません（現在: {manual_total}）")
 
-# ペア情報入力（スプレッドシート形式）
-st.write("### ペア情報入力（所属・選手1・選手2）")
-def generate_empty_pair_df(n):
-    return pd.DataFrame({
-        "ペアNo": [f"No.{i+1}" for i in range(n)],
-        "所属": ["" for _ in range(n)],
-        "選手1": ["" for _ in range(n)],
-        "選手2": ["" for _ in range(n)]
-    })
-
-if "pair_df" not in st.session_state or len(st.session_state.pair_df) != total_pairs:
-    st.session_state.pair_df = generate_empty_pair_df(total_pairs)
-
-edited_df = st.data_editor(
-    st.session_state.pair_df,
-    column_config={"ペアNo": st.column_config.TextColumn(disabled=True)},
-    use_container_width=True,
-    num_rows="dynamic"
-)
-st.session_state.pair_df = edited_df.copy()
-
-# ラベル生成（チーム：選手1・選手2）
-pair_info = []
-for _, row in edited_df.iterrows():
-    team = row["所属"]
-    name1 = row["選手1"]
-    name2 = row["選手2"]
-    label = f"{team}：{name1}・{name2}" if team or name1 or name2 else "未入力ペア"
-    pair_info.append(label)
-
 # ペアをリーグに割り当てる関数（手動優先 → 自動で振り分け）
-def assign_pairs_to_leagues_flexible(pairs, num_leagues, manual_sizes):
+def assign_pairs_to_leagues_flexible(total_count, num_leagues, manual_sizes):
     leagues = []
     index = 0
-    league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
-    for label in league_labels:
+    labels = [chr(ord('A') + i) for i in range(num_leagues)]
+    remaining = total_count
+
+    for label in labels:
         size = manual_sizes.get(label, 0)
         if size > 0:
-            leagues.append(pairs[index:index+size])
-            index += size
+            leagues.append(size)
+            remaining -= size
         else:
-            base = len(pairs) // num_leagues
-            leagues.append(pairs[index:index+base])
-            index += base
+            leagues.append(0)
+
+    if remaining > 0:
+        for i in range(len(leagues)):
+            if leagues[i] == 0:
+                leagues[i] = remaining // (leagues.count(0))
+        while sum(leagues) < total_count:
+            for i in range(len(leagues)):
+                if sum(leagues) < total_count:
+                    leagues[i] += 1
     return leagues
 
-st.write("### リーグ対戦表の生成")
-league_assignments = assign_pairs_to_leagues_flexible(pair_info, num_leagues, manual_league_sizes)
-league_matchup_dfs = {}
-league_tables_raw = {}  # 対戦表の元データ保持用
+# 実際のリーグ分け
+league_sizes = assign_pairs_to_leagues_flexible(total_pairs, num_leagues, manual_league_sizes)
+league_assignments = []
+pair_counter = 0
+for i, size in enumerate(league_sizes):
+    league_name = chr(ord('A') + i)
+    league_assignments.append([f"{league_name}{j+1}" for j in range(size)])
+    pair_counter += size
 
-# 各リーグの対戦表を表示（見た目：Excel準拠）
+# 各リーグごとの選手入力
+st.write("### リーグごとの選手情報入力")
+league_pair_data = {}
+
 for i, league in enumerate(league_assignments):
     league_name = chr(ord('A') + i)
-    st.subheader(f"{league_name}リーグ 対戦表プレビュー")
+    st.subheader(f"{league_name}リーグ 選手入力")
+    df = pd.DataFrame({
+        "ペア番号": league,
+        "所属": ["" for _ in league],
+        "選手1": ["" for _ in league],
+        "選手2": ["" for _ in league]
+    })
+    edited = st.data_editor(df, column_config={"ペア番号": st.column_config.TextColumn(disabled=True)}, use_container_width=True)
+    league_pair_data[league_name] = edited
 
-    headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(league))] + ["順位"]
+# 対戦表作成・表示
+st.write("### リーグ対戦表の生成")
+league_matchup_dfs = {}
+league_tables_raw = {}
+
+for league_name, df in league_pair_data.items():
+    st.subheader(f"{league_name}リーグ 対戦表プレビュー")
+    pair_labels = df["ペア番号"]
+    pair_names = [f"{row['所属']}：{row['選手1']}・{row['選手2']}" for _, row in df.iterrows()]
+    label_map = dict(zip(pair_labels, pair_names))
+
+    headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(pair_labels))] + ["順位"]
     table_data = []
-    for idx, pair in enumerate(league, start=1):
-        if isinstance(pair, str) and "：" in pair:
-            team, players = pair.split("：", 1)
-        else:
-            team, players = pair, ""
-        row = [idx, players, team]
-        for j in range(1, len(league)+1):
-            row.append("×" if idx == j else "")
-        row.append("")  # 順位欄
+    for idx, label in enumerate(pair_labels):
+        name = label_map.get(label, "")
+        team, players = (name.split("：", 1) if "：" in name else ("", name))
+        row = [idx + 1, players, team]
+        for j in range(len(pair_labels)):
+            row.append("×" if j == idx else "")
+        row.append("")
         table_data.append(row)
 
     df_table = pd.DataFrame(table_data, columns=headers)
     st.dataframe(df_table, use_container_width=True)
-    league_tables_raw[league_name] = df_table.copy()
+    league_tables_raw[league_name] = df_table
 
-    # 対戦組み合わせも従来通り保持
-    combos = list(itertools.combinations(league, 2))
+    combos = list(itertools.combinations(pair_labels, 2))
     df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
     league_matchup_dfs[league_name] = df_matches
 
@@ -110,21 +112,19 @@ tournament_mode = st.radio("トーナメント出場形式を選択", ["各リ�
 selected_pairs = []
 
 if tournament_mode == "各リーグ1位":
-    for i, league in enumerate(league_assignments):
-        if league:
-            league_name = chr(ord('A') + i)
-            selected_pairs.append(f"{league[0]}（{league_name}1位）")
+    for league_name, df in league_pair_data.items():
+        if not df.empty:
+            selected_pairs.append(f"{df['ペア番号'].iloc[0]}（{league_name}1位）")
 elif tournament_mode == "各リーグ1・2位":
-    for i, league in enumerate(league_assignments):
-        if len(league) >= 2:
-            league_name = chr(ord('A') + i)
+    for league_name, df in league_pair_data.items():
+        if len(df) >= 2:
             selected_pairs.extend([
-                f"{league[0]}（{league_name}1位）",
-                f"{league[1]}（{league_name}2位）"
+                f"{df['ペア番号'].iloc[0]}（{league_name}1位）",
+                f"{df['ペア番号'].iloc[1]}（{league_name}2位）"
             ])
 elif tournament_mode == "手動選択":
     st.write("### トーナメント出場ペアを選択（手動）")
-    all_pairs = [pair for league in league_assignments for pair in league]
+    all_pairs = [row["ペア番号"] for df in league_pair_data.values() for _, row in df.iterrows()]
     selected_pairs = st.multiselect("出場ペアを選んでください", all_pairs)
 
 st.write("### トーナメント出場ペア一覧")
