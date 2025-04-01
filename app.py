@@ -118,28 +118,31 @@ for league_name, df in league_pair_data.items():
         st.error(f"{league_name}リーグの対戦表生成中にエラーが発生しました: {e}")
         continue
 
-# トーナメント出場形式の選択
-st.write("### トーナメント出場形式の選択")
-tournament_mode = st.radio("トーナメント出場形式を選択", ["各リーグ1位", "各リーグ1・2位", "手動選択"])
+# トーナメント条件分岐の追加
+st.write("### 決勝方式の選択")
+final_mode = st.radio("決勝の形式を選択", ["トーナメント", "リーグ戦"])
+rank_limit = st.number_input("各リーグから何位まで出場するか", min_value=1, max_value=5, value=1, step=1)
 
-selected_pairs = []
+# トーナメント構成の生成
+qualified_pairs = []
+for league_name, df in league_pair_data.items():
+    for i in range(min(rank_limit, len(df))):
+        pair_label = df["ペア番号"].iloc[i]
+        qualified_pairs.append(f"{pair_label}（{league_name}{i+1}位）")
 
-if tournament_mode == "各リーグ1位":
-    for league_name, df in league_pair_data.items():
-        if not df.empty:
-            selected_pairs.append(f"{df['ペア番号'].iloc[0]}（{league_name}1位）")
-elif tournament_mode == "各リーグ1・2位":
-    for league_name, df in league_pair_data.items():
-        if len(df) >= 2:
-            selected_pairs.extend([
-                f"{df['ペア番号'].iloc[0]}（{league_name}1位）",
-                f"{df['ペア番号'].iloc[1]}（{league_name}2位）"
-            ])
-elif tournament_mode == "手動選択":
-    st.write("### トーナメント出場ペアを選択（手動）")
-    all_pairs = [row["ペア番号"] for df in league_pair_data.values() for _, row in df.iterrows()]
-    selected_pairs = st.multiselect("出場ペアを選んでください", all_pairs)
-
-st.write("### トーナメント出場ペア一覧")
-for p in selected_pairs:
+st.write("### 決勝進出ペア一覧")
+for p in qualified_pairs:
     st.markdown(f"- {p}")
+
+# 仮のトーナメント表またはリーグ戦表示（シンプルなテキスト）
+if final_mode == "トーナメント":
+    st.write("### トーナメント表（仮）")
+    st.markdown("組み合わせは自動生成予定。準決勝、決勝など表示可能。")
+    for i in range(0, len(qualified_pairs), 2):
+        if i+1 < len(qualified_pairs):
+            st.write(f"{qualified_pairs[i]} vs {qualified_pairs[i+1]}")
+        else:
+            st.write(f"{qualified_pairs[i]}（シード）")
+else:
+    st.write("### 決勝リーグ戦（仮）")
+    st.dataframe(pd.DataFrame(itertools.combinations(qualified_pairs, 2), columns=["ペア1", "ペア2"]))
