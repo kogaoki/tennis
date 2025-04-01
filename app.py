@@ -68,7 +68,6 @@ league_matchup_dfs = {}
 league_tables_raw = {}
 match_schedule = []
 
-# 対戦順の制御（例: 3ペア -> 1-2,1-3,2-3 / 4ペア -> 1-2,3-4,1-3,2-4,1-4,2-3）
 def generate_ordered_matches(pairs):
     if len(pairs) == 3:
         return [(pairs[0], pairs[1]), (pairs[0], pairs[2]), (pairs[1], pairs[2])]
@@ -148,17 +147,17 @@ if st.button("スコアシートPDFを出力"):
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            page.insert_text(coords["no1"], match["ペア1"], fontsize=12)
-            page.insert_text(coords["team1"], team1, fontsize=12)
-            page.insert_text(coords["p1_1"], p1_1, fontsize=12)
+            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, fontname="helv")
+            page.insert_text(coords["team1"], team1, fontsize=12, fontname="helv")
+            page.insert_text(coords["p1_1"], p1_1, fontsize=12, fontname="helv")
             if p1_2:
-                page.insert_text(coords["p1_2"], p1_2, fontsize=12)
+                page.insert_text(coords["p1_2"], p1_2, fontsize=12, fontname="helv")
 
-            page.insert_text(coords["no2"], match["ペア2"], fontsize=12)
-            page.insert_text(coords["team2"], team2, fontsize=12)
-            page.insert_text(coords["p2_1"], p2_1, fontsize=12)
+            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, fontname="helv")
+            page.insert_text(coords["team2"], team2, fontsize=12, fontname="helv")
+            page.insert_text(coords["p2_1"], p2_1, fontsize=12, fontname="helv")
             if p2_2:
-                page.insert_text(coords["p2_2"], p2_2, fontsize=12)
+                page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname="helv")
 
         pdf_bytes = output_pdf.write()
         st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
