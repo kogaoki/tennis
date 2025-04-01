@@ -25,6 +25,9 @@ for label in league_labels:
 if manual_total > 0 and manual_total != total_pairs:
     st.sidebar.warning(f"合計ペア数が {total_pairs} と一致していません（現在: {manual_total}）")
 
+if manual_total == 0:
+    st.stop()
+
 # ペアをリーグに割り当てる関数（手動優先 → 自動で振り分け）
 def assign_pairs_to_leagues_flexible(total_count, num_leagues, manual_sizes):
     leagues = []
