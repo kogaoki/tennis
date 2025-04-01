@@ -10,59 +10,36 @@ st.title("大会運営システム：リーグ対戦表＆スコアシート生�
 
 st.sidebar.header("設定")
 total_pairs = st.sidebar.number_input("総ペア数", min_value=2, max_value=100, value=13, step=1)
-num_leagues = st.sidebar.number_input("リーグ数", min_value=1, max_value=26, value=4, step=1)
+pairs_per_league = st.sidebar.selectbox("1リーグに入れるペア数", options=[2, 3, 4, 5], index=2)
 
-# 何ペアリーグにするか手動設定
-st.sidebar.write("### 各リーグのペア数（任意）")
-manual_league_sizes = {}
-manual_total = 0
-league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
-for label in league_labels:
-    size = st.sidebar.number_input(f"{label}リーグ", min_value=0, max_value=total_pairs, value=0, step=1, key=f"manual_{label}")
-    manual_league_sizes[label] = size
-    manual_total += size
+base_league_count = total_pairs // pairs_per_league
+remainder = total_pairs % pairs_per_league
 
-if manual_total > 0 and manual_total != total_pairs:
-    st.sidebar.warning(f"合計ペア数が {total_pairs} と一致していません（現在: {manual_total}）")
+st.sidebar.markdown(f"**→ {base_league_count}リーグ + {remainder}ペア余り**")
 
-if manual_total == 0:
-    st.stop()
+# 余りが出る場合、どこに追加するか選ぶ
+extra_league_targets = []
+if remainder > 0:
+    st.sidebar.write("### 余りの振り分け先")
+    options = [f"{chr(ord('A') + i)}" for i in range(base_league_count)]
+    extra_league_targets = st.sidebar.multiselect(
+        "追加するリーグを選択（上から順がおすすめ）",
+        options,
+        default=options[:remainder],
+        max_selections=remainder
+    )
+    if len(extra_league_targets) != remainder:
+        st.stop()
 
-# ペアをリーグに割り当てる関数（手動優先 → 自動で振り分け）
-def assign_pairs_to_leagues_flexible(total_count, num_leagues, manual_sizes):
-    leagues = []
-    index = 0
-    labels = [chr(ord('A') + i) for i in range(num_leagues)]
-    remaining = total_count
-
-    for label in labels:
-        size = manual_sizes.get(label, 0)
-        if size > 0:
-            leagues.append(size)
-            remaining -= size
-        else:
-            leagues.append(0)
-
-    if remaining > 0:
-        for i in range(len(leagues)):
-            if leagues[i] == 0:
-                leagues[i] = remaining // (leagues.count(0))
-        while sum(leagues) < total_count:
-            for i in range(len(leagues)):
-                if sum(leagues) < total_count:
-                    leagues[i] += 1
-    return leagues
-
-# 実際のリーグ分け
-league_sizes = assign_pairs_to_leagues_flexible(total_pairs, num_leagues, manual_league_sizes)
+# リーグ構成
 league_assignments = []
-pair_counter = 0
-for i, size in enumerate(league_sizes):
+pair_no = 1
+for i in range(base_league_count):
+    league_size = pairs_per_league + (1 if chr(ord('A') + i) in extra_league_targets else 0)
     league_name = chr(ord('A') + i)
-    league_assignments.append([f"{league_name}{j+1}" for j in range(size)])
-    pair_counter += size
+    league_assignments.append([f"{league_name}{j+1}" for j in range(league_size)])
 
-# 各リーグごとの選手入力
+# 各リーグのペア入力欄
 st.write("### リーグごとの選手情報入力")
 league_pair_data = {}
 
@@ -84,8 +61,11 @@ league_matchup_dfs = {}
 league_tables_raw = {}
 
 for league_name, df in league_pair_data.items():
+    if df.empty:
+        continue
+
     st.subheader(f"{league_name}リーグ 対戦表プレビュー")
-    pair_labels = df["ペア番号"]
+    pair_labels = df["ペア番号"].tolist()
     pair_names = [f"{row['所属']}：{row['選手1']}・{row['選手2']}" for _, row in df.iterrows()]
     label_map = dict(zip(pair_labels, pair_names))
 
