@@ -88,6 +88,9 @@ for league_name, df in league_pair_data.items():
             for j in range(len(pair_labels)):
                 row.append("×" if j == idx else "")
             row.append("")
+            # 検証：行の長さを確認し、不足していたら補完
+            while len(row) < len(headers):
+                row.append("")
             table_data.append(row)
 
         df_table = pd.DataFrame(table_data, columns=headers)
@@ -145,4 +148,7 @@ if final_mode == "トーナメント":
             st.write(f"{qualified_pairs[i]}（シード）")
 else:
     st.write("### 決勝リーグ戦（仮）")
-    st.dataframe(pd.DataFrame(itertools.combinations(qualified_pairs, 2), columns=["ペア1", "ペア2"]))
+    if len(qualified_pairs) >= 2:
+        st.dataframe(pd.DataFrame(itertools.combinations(qualified_pairs, 2), columns=["ペア1", "ペア2"]))
+    else:
+        st.info("対戦ペアが2組以上必要です。")
