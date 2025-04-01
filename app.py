@@ -7,6 +7,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Side, Font
 import fitz
 import tempfile
+import pathlib
 
 st.set_page_config(layout="wide")
 st.title("大会運営システム：リーグ対戦表＆スコアシート生成")
