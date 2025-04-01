@@ -5,6 +5,7 @@ import requests
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Side, Font
+import fitz
 
 st.set_page_config(layout="wide")
 st.title("大会運営システム：リーグ対戦表＆スコアシート生成")
@@ -13,8 +14,6 @@ st.sidebar.header("設定")
 total_pairs = st.sidebar.number_input("総ペア数", min_value=2, max_value=100, value=13, step=1)
 pairs_per_league = st.sidebar.selectbox("1リーグに入れるペア数", options=[2, 3, 4, 5], index=2)
 court_count = st.sidebar.number_input("使用コート数（進行表用）", min_value=1, max_value=10, value=2, step=1)
-
-uploaded_file = st.sidebar.file_uploader("スコアシートの雛形ファイル（.xlsx）をアップロード", type=["xlsx"])
 
 base_league_count = total_pairs // pairs_per_league
 remainder = total_pairs % pairs_per_league
@@ -110,56 +109,47 @@ for league_name, df in league_pair_data.items():
 st.session_state["match_schedule"] = match_schedule
 st.session_state["league_pair_data"] = league_pair_data
 
-if st.button("スコアシート（雛形あり）を出力"):
+if st.button("スコアシートPDFを出力"):
     try:
-        if uploaded_file:
-            template_wb = load_workbook(uploaded_file)
-            st.info("アップロードされた雛形を使用します。")
-        else:
-            github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.xlsx"
-            response = requests.get(github_url)
-            template_wb = load_workbook(BytesIO(response.content))
-            st.info("GitHubから雛形を読み込みました。")
+        pdf_template = fitz.open("/mnt/data/scoresheet.pdf")
+        output_pdf = fitz.open()
 
-        template_ws = template_wb.active
-        output_wb = Workbook()
-        output_wb.remove(output_wb.active)
+        coords = {
+            "no1": (92, 181), "team1": (213, 181), "p1_1": (187, 214), "p1_2": (187, 250),
+            "no2": (361, 180), "team2": (477, 180), "p2_1": (453, 214), "p2_2": (452, 250)
+        }
+
+        def get_info(code):
+            for league_df in st.session_state["league_pair_data"].values():
+                row = league_df[league_df["ペア番号"] == code]
+                if not row.empty:
+                    team = row.iloc[0]["所属"]
+                    p1 = row.iloc[0]["選手1"]
+                    p2 = row.iloc[0]["選手2"]
+                    return team, p1, p2
+            return "", "", ""
 
         for idx, match in enumerate(st.session_state["match_schedule"]):
-            sheet_name = f"{match['リーグ']}_{idx+1}"
-            ws = output_wb.create_sheet(sheet_name)
-            for row in template_ws.iter_rows():
-                for cell in row:
-                    ws[cell.coordinate].value = cell.value
-
-            def get_info(code):
-                for league_df in st.session_state["league_pair_data"].values():
-                    row = league_df[league_df["ペア番号"] == code]
-                    if not row.empty:
-                        team = row.iloc[0]["所属"]
-                        p1 = row.iloc[0]["選手1"]
-                        p2 = row.iloc[0]["選手2"]
-                        return team, p1, p2
-                return "", "", ""
+            output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
+            page = output_pdf[-1]
 
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            ws["D9"] = match["ペア1"]
-            ws["K9"] = team1
-            ws["G11"] = p1_1
+            page.insert_text(coords["no1"], match["ペア1"], fontsize=12)
+            page.insert_text(coords["team1"], team1, fontsize=12)
+            page.insert_text(coords["p1_1"], p1_1, fontsize=12)
             if p1_2:
-                ws["G14"] = p1_2
+                page.insert_text(coords["p1_2"], p1_2, fontsize=12)
 
-            ws["X9"] = match["ペア2"]
-            ws["AE9"] = team2
-            ws["AA11"] = p2_1
+            page.insert_text(coords["no2"], match["ペア2"], fontsize=12)
+            page.insert_text(coords["team2"], team2, fontsize=12)
+            page.insert_text(coords["p2_1"], p2_1, fontsize=12)
             if p2_2:
-                ws["AA14"] = p2_2
+                page.insert_text(coords["p2_2"], p2_2, fontsize=12)
 
-        bio = BytesIO()
-        output_wb.save(bio)
-        st.download_button("スコアシートExcelをダウンロード", bio.getvalue(), file_name="score_sheets.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        pdf_bytes = output_pdf.write()
+        st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
 
     except Exception as e:
-        st.error(f"雛形の取得または処理に失敗しました: {e}")
+        st.error(f"PDF出力中にエラーが発生しました: {e}")
