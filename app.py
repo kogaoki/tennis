@@ -12,6 +12,16 @@ st.sidebar.header("設定")
 total_pairs = st.sidebar.number_input("総ペア数", min_value=2, max_value=100, value=13, step=1)
 num_leagues = st.sidebar.number_input("リーグ数", min_value=1, max_value=26, value=4, step=1)
 
+# 増やすリーグを選択
+extra_league_indices = []
+if total_pairs % num_leagues != 0:
+    st.sidebar.write("### 余りペアの振り分け先を選択")
+    extra_count = total_pairs % num_leagues
+    league_labels = [chr(ord('A') + i) for i in range(num_leagues)]
+    extra_league_indices = st.sidebar.multiselect(
+        f"{extra_count}つのリーグに1ペアずつ追加してください:", league_labels, max_selections=extra_count, default=league_labels[:extra_count]
+    )
+
 # ペア情報入力（スプレッドシート形式）
 st.write("### ペア情報入力（所属・選手1・選手2）")
 def generate_empty_pair_df(n):
@@ -36,22 +46,20 @@ for _, row in edited_df.iterrows():
     label = f"{team}：{name1}・{name2}" if team or name1 or name2 else "未入力ペア"
     pair_info.append(label)
 
-# ペアをリーグに割り当てる関数
-def assign_pairs_to_leagues(pairs, num_leagues):
+# ペアをリーグに割り当てる関数（指定リーグに余りを加える）
+def assign_pairs_to_leagues_custom(pairs, num_leagues, extra_leagues):
     base = len(pairs) // num_leagues
-    remainder = len(pairs) % num_leagues
-
     leagues = []
     index = 0
     for i in range(num_leagues):
-        league_size = base + (1 if i < remainder else 0)
+        league_label = chr(ord('A') + i)
+        league_size = base + (1 if league_label in extra_leagues else 0)
         leagues.append(pairs[index:index+league_size])
         index += league_size
-
     return leagues
 
 st.write("### リーグ対戦表の生成")
-league_assignments = assign_pairs_to_leagues(pair_info, num_leagues)
+league_assignments = assign_pairs_to_leagues_custom(pair_info, num_leagues, extra_league_indices)
 league_matchup_dfs = {}
 league_tables_raw = {}  # 対戦表の元データ保持用
 
@@ -82,19 +90,6 @@ for i, league in enumerate(league_assignments):
     df_matches = pd.DataFrame(combos, columns=["ペア1", "ペア2"])
     league_matchup_dfs[league_name] = df_matches
 
-# リーグ順位の入力
-st.write("### リーグ順位の入力")
-pair_rankings = {}
-
-for i, league in enumerate(league_assignments):
-    league_name = chr(ord('A') + i)
-    st.subheader(f"{league_name}リーグ 順位入力")
-    rankings = {}
-    for pair in league:
-        rank = st.selectbox(f"{pair} の順位", options=list(range(1, len(league)+1)), key=f"{pair}_rank")
-        rankings[pair] = rank
-    pair_rankings[league_name] = rankings
-
 # トーナメント出場形式の選択
 st.write("### トーナメント出場形式の選択")
 tournament_mode = st.radio("トーナメント出場形式を選択", ["各リーグ1位", "各リーグ1・2位", "手動選択"])
@@ -102,13 +97,18 @@ tournament_mode = st.radio("トーナメント出場形式を選択", ["各リ�
 selected_pairs = []
 
 if tournament_mode == "各リーグ1位":
-    for league_name, rankings in pair_rankings.items():
-        top_pair = min(rankings, key=rankings.get)
-        selected_pairs.append(f"{top_pair}（{league_name}1位）")
+    for i, league in enumerate(league_assignments):
+        if league:
+            league_name = chr(ord('A') + i)
+            selected_pairs.append(f"{league[0]}（{league_name}1位）")
 elif tournament_mode == "各リーグ1・2位":
-    for league_name, rankings in pair_rankings.items():
-        sorted_pairs = sorted(rankings.items(), key=lambda x: x[1])
-        selected_pairs.extend([f"{sorted_pairs[0][0]}（{league_name}1位）", f"{sorted_pairs[1][0]}（{league_name}2位）"])
+    for i, league in enumerate(league_assignments):
+        if len(league) >= 2:
+            league_name = chr(ord('A') + i)
+            selected_pairs.extend([
+                f"{league[0]}（{league_name}1位）",
+                f"{league[1]}（{league_name}2位）"
+            ])
 elif tournament_mode == "手動選択":
     st.write("### トーナメント出場ペアを選択（手動）")
     all_pairs = [pair for league in league_assignments for pair in league]
