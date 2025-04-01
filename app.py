@@ -111,7 +111,9 @@ st.session_state["league_pair_data"] = league_pair_data
 
 if st.button("スコアシートPDFを出力"):
     try:
-        pdf_template = fitz.open("/mnt/data/scoresheet.pdf")
+        github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
+        response = requests.get(github_url)
+        pdf_template = fitz.open(stream=response.content, filetype="pdf")
         output_pdf = fitz.open()
 
         coords = {
