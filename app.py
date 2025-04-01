@@ -91,6 +91,22 @@ for league_name, df in league_pair_data.items():
             table_data.append(row)
 
         df_table = pd.DataFrame(table_data, columns=headers)
+
+        # カラム順序と幅・整列調整用のCSS
+        st.markdown(
+            """
+            <style>
+            [data-testid="stDataFrame"] table td:nth-child(1) {
+                text-align: left !important;
+                min-width: 30px;
+                width: 40px;
+                max-width: 50px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
         st.dataframe(df_table, use_container_width=True)
         league_tables_raw[league_name] = df_table
 
