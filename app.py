@@ -118,25 +118,19 @@ if st.button("スコアシートPDFをダウンロード"):
         pdf_template = fitz.open(stream=response.content, filetype="pdf")
         output_pdf = fitz.open()
 
-        # フォントを一時ファイルとして保存 → fitz.Font で読み込む
-        font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/NotoSansJP-VariableFont_wght.ttf"
+  　　　 font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/NotoSansJP-VariableFont_wght.ttf"
         font_response = requests.get(font_url)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
             tmp_font_file.write(font_response.content)
             tmp_font_file.flush()
             font_path = pathlib.Path(tmp_font_file.name)
-            
-       
-        # 日本語フォントを登録
-        custom_font = fitz.Font(fontfile=str(font_path), fontname="ipagothic")
+        custom_font_path = str(font_path)  # フォントファイルは読み込まず、insert_textboxを使用
 
-        # テキスト描画位置
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
             "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
         }
 
-        # ペア情報取得関数
         def get_info(code):
             for league_df in league_pair_data.values():
                 row = league_df[league_df["ペア番号"] == code]
@@ -147,7 +141,6 @@ if st.button("スコアシートPDFをダウンロード"):
                     return team, p1, p2
             return "", "", ""
 
-        # 対戦カードの構築
         match_schedule = []
         for league_name, df in league_pair_data.items():
             pairs = df["ペア番号"].tolist()
@@ -161,7 +154,6 @@ if st.button("スコアシートPDFをダウンロード"):
             for m in ordered:
                 match_schedule.append({"リーグ": league_name, "ペア1": m[0], "ペア2": m[1]})
 
-        # 各対戦ごとにPDFに書き込み
         for match in match_schedule:
             output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
             page = output_pdf[-1]
@@ -169,21 +161,21 @@ if st.button("スコアシートPDFをダウンロード"):
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, fontname="ipagothic")
-            page.insert_text(coords["team1"], team1, fontsize=12, fontname="ipagothic")
-            page.insert_text(coords["p1_1"], p1_1, fontsize=12, fontname="ipagothic")
+            page.insert_textbox(fitz.Rect(coords["no1"][0], coords["no1"][1], coords["no1"][0]+200, coords["no1"][1]+20), match["ペア1"], fontsize=12)
+            page.insert_textbox(fitz.Rect(coords["team1"][0], coords["team1"][1], coords["team1"][0]+200, coords["team1"][1]+20), team1, fontsize=12)
+            page.insert_textbox(fitz.Rect(coords["p1_1"][0], coords["p1_1"][1], coords["p1_1"][0]+200, coords["p1_1"][1]+20), p1_1, fontsize=12)
             if p1_2:
-                page.insert_text(coords["p1_2"], p1_2, fontsize=12, fontname="ipagothic")
+                page.insert_textbox(fitz.Rect(coords["p1_2"][0], coords["p1_2"][1], coords["p1_2"][0]+200, coords["p1_2"][1]+20), p1_2, fontsize=12)
 
-            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, fontname="ipagothic")
-            page.insert_text(coords["team2"], team2, fontsize=12, fontname="ipagothic")
-            page.insert_text(coords["p2_1"], p2_1, fontsize=12, fontname="ipagothic")
+            page.insert_textbox(fitz.Rect(coords["no2"][0], coords["no2"][1], coords["no2"][0]+200, coords["no2"][1]+20), match["ペア2"], fontsize=12)
+            page.insert_textbox(fitz.Rect(coords["team2"][0], coords["team2"][1], coords["team2"][0]+200, coords["team2"][1]+20), team2, fontsize=12)
+            page.insert_textbox(fitz.Rect(coords["p2_1"][0], coords["p2_1"][1], coords["p2_1"][0]+200, coords["p2_1"][1]+20), p2_1, fontsize=12)
             if p2_2:
-                page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname="ipagothic")
+                page.insert_textbox(fitz.Rect(coords["p2_2"][0], coords["p2_2"][1], coords["p2_2"][0]+200, coords["p2_2"][1]+20), p2_2, fontsize=12)
 
-        # ダウンロードボタンで出力
         pdf_bytes = output_pdf.write()
         st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
+
 
     except Exception as e:
         st.error(f"PDF出力中にエラーが発生しました: {e}")
