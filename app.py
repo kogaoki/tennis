@@ -6,6 +6,7 @@ from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Side, Font
 import fitz
+import tempfile
 
 st.set_page_config(layout="wide")
 st.title("大会運営システム：リーグ対戦表＆スコアシート生成")
@@ -108,7 +109,7 @@ if st.button("Excelダウンロード用にエクスポート"):
     st.download_button("リーグ対戦表（Excel）をダウンロード", output.getvalue(), file_name="リーグ対戦表.xlsx")
 
 # スコアシートPDF出力（復活）
-if st.button("スコアシートPDFを出力"):
+if st.button("スコアシートPDFをダウンロード"):
     try:
         github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
         response = requests.get(github_url)
@@ -117,8 +118,11 @@ if st.button("スコアシートPDFを出力"):
 
         font_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/ipaexg.ttf"
         font_response = requests.get(font_url)
-        font_bytes = BytesIO(font_response.content)
-        custom_font = fitz.Font(fontfile=font_bytes)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp_font_file:
+            tmp_font_file.write(font_response.content)
+            font_path = tmp_font_file.name
+
+        custom_font = fitz.Font(fontfile=font_path)
 
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
