@@ -125,9 +125,10 @@ if st.button("スコアシートPDFをダウンロード"):
             tmp_font_file.write(font_response.content)
             tmp_font_file.flush()
             font_path = pathlib.Path(tmp_font_file.name)
+            
        
         # 日本語フォントを登録
-        custom_font = fitz.Font(fontfile=font_path, fontname="ipagothic")
+        custom_font = fitz.Font(fontfile=str(font_path), fontname="ipagothic")
 
         # テキスト描画位置
         coords = {
