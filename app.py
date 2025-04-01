@@ -164,18 +164,21 @@ if st.button("スコアシートPDFをダウンロード"):
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
 
-            # 描画（暫定的に insert_text に変更して表示確認）
-            page.insert_text((coords["team1"][0], coords["team1"][1]), f"{team1}", fontsize=12)
-            page.insert_text((coords["p1_1"][0], coords["p1_1"][1]), f"{p1_1}", fontsize=12)
-            if p1_2:
-                page.insert_text((coords["p1_2"][0], coords["p1_2"][1]), f"{p1_2}", fontsize=12)
-            page.insert_text((coords["no1"][0], coords["no1"][1]), match["ペア1"], fontsize=12)
+            def draw_textbox(coord, text):
+                rect = fitz.Rect(coord[0], coord[1], coord[0]+200, coord[1]+20)
+                page.insert_textbox(rect, text, fontsize=12)
 
-            page.insert_text((coords["team2"][0], coords["team2"][1]), f"{team2}", fontsize=12)
-            page.insert_text((coords["p2_1"][0], coords["p2_1"][1]), f"{p2_1}", fontsize=12)
+            draw_textbox(coords["team1"], team1)
+            draw_textbox(coords["p1_1"], p1_1)
+            if p1_2:
+                draw_textbox(coords["p1_2"], p1_2)
+            draw_textbox(coords["no1"], match["ペア1"])
+
+            draw_textbox(coords["team2"], team2)
+            draw_textbox(coords["p2_1"], p2_1)
             if p2_2:
-                page.insert_text((coords["p2_2"][0], coords["p2_2"][1]), f"{p2_2}", fontsize=12)
-            page.insert_text((coords["no2"][0], coords["no2"][1]), match["ペア2"], fontsize=12)
+                draw_textbox(coords["p2_2"], p2_2)
+            draw_textbox(coords["no2"], match["ペア2"])
 
         pdf_bytes = output_pdf.write()
         st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
