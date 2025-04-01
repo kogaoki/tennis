@@ -10,6 +10,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import mm
+from PyPDF2 import PdfReader, PdfWriter
 import tempfile
 import pathlib
 
@@ -126,10 +127,6 @@ if st.button("スコアシートPDFをダウンロード"):
 
         pdfmetrics.registerFont(TTFont("CustomJP", font_path))
 
-        buffer = BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-
         coords = {
             "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
             "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
@@ -162,9 +159,23 @@ if st.button("スコアシートPDFをダウンロード"):
             st.warning("対戦カードが作成されていません。選手情報を入力してください。")
             st.stop()
 
+        # 背景テンプレートPDF
+        template_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
+        template_response = requests.get(template_url)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_template_file:
+            tmp_template_file.write(template_response.content)
+            tmp_template_path = tmp_template_file.name
+
+        output = PdfWriter()
+
         for match in match_schedule:
             team1, p1_1, p1_2 = get_info(match["ペア1"])
             team2, p2_1, p2_2 = get_info(match["ペア2"])
+
+            # 一時PDFに文字だけ描画
+            overlay_buffer = BytesIO()
+            c = canvas.Canvas(overlay_buffer, pagesize=A4)
+            height = A4[1]
 
             def draw_text(x, y, text):
                 c.setFont("CustomJP", 12)
@@ -183,10 +194,21 @@ if st.button("スコアシートPDFをダウンロード"):
             draw_text(coords["no2"][0], coords["no2"][1], match["ペア2"])
 
             c.showPage()
+            c.save()
+            overlay_buffer.seek(0)
 
-        c.save()
-        buffer.seek(0)
-        st.download_button("PDFスコアシートをダウンロード", buffer, file_name="score_sheets.pdf", mime="application/pdf")
+            template_reader = PdfReader(tmp_template_path)
+            overlay_reader = PdfReader(overlay_buffer)
+            template_page = template_reader.pages[0]
+            overlay_page = overlay_reader.pages[0]
+            template_page.merge_page(overlay_page)
+            output.add_page(template_page)
+
+        final_buffer = BytesIO()
+        output.write(final_buffer)
+        final_buffer.seek(0)
+
+        st.download_button("PDFスコアシートをダウンロード", final_buffer, file_name="score_sheets.pdf", mime="application/pdf")
 
     except Exception as e:
         st.error(f"PDF出力中にエラーが発生しました: {e}")
