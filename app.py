@@ -56,111 +56,53 @@ for i, league in enumerate(league_assignments):
             edited = st.data_editor(
                 df,
                 column_config={"ペア番号": st.column_config.TextColumn(disabled=True)},
-                use_container_width=True
+                use_container_width=True,
+                hide_index=True,
+                key=f"editor_{league_name}"
             )
             league_pair_data[league_name] = edited
         except Exception as e:
             st.error(f"{league_name}リーグの入力中にエラーが発生しました: {e}")
             continue
 
-st.write("### リーグ対戦表の生成")
-league_matchup_dfs = {}
-league_tables_raw = {}
-match_schedule = []
+st.write("### リーグ対戦表のExcel出力")
+if st.button("Excelダウンロード用にエクスポート"):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "全リーグまとめ"
+    center = Alignment(horizontal="center", vertical="center")
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    bold = Font(bold=True)
+    current_row = 1
 
-def generate_ordered_matches(pairs):
-    if len(pairs) == 3:
-        return [(pairs[0], pairs[1]), (pairs[0], pairs[2]), (pairs[1], pairs[2])]
-    elif len(pairs) == 4:
-        return [(pairs[0], pairs[1]), (pairs[2], pairs[3]), (pairs[0], pairs[2]),
-                (pairs[1], pairs[3]), (pairs[0], pairs[3]), (pairs[1], pairs[2])]
-    else:
-        return list(itertools.combinations(pairs, 2))
+    for league_name, df in league_pair_data.items():
+        if df.empty:
+            continue
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=7)
+        ws.cell(row=current_row, column=1, value=f"{league_name}リーグ").alignment = center
+        ws.cell(row=current_row, column=1).font = Font(bold=True, size=14)
+        current_row += 1
 
-for league_name, df in league_pair_data.items():
-    if df.empty:
-        continue
+        headers = ["No", "ペア名", "チーム名"] + [str(i + 1) for i in range(len(df))] + ["順位"]
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=current_row, column=col, value=header)
+            cell.alignment = center
+            cell.font = bold
+            cell.border = border
+        current_row += 1
 
-    try:
-        st.subheader(f"{league_name}リーグ 対戦表プレビュー")
-        pair_labels = df["ペア番号"].tolist()
-        pair_names = [f"{row['所属']}：{row['選手1']}・{row['選手2']}" for _, row in df.iterrows()]
-        label_map = dict(zip(pair_labels, pair_names))
+        for i, row in df.iterrows():
+            pair = row["ペア番号"]
+            team = row["所属"]
+            name = f"{row['選手1']}・{row['選手2']}" if row["選手2"] else row["選手1"]
+            row_data = [i + 1, name, team] + ["×" if j == i else "" for j in range(len(df))] + [""]
+            for col, val in enumerate(row_data, start=1):
+                cell = ws.cell(row=current_row, column=col, value=val)
+                cell.alignment = center
+                cell.border = border
+            current_row += 1
+        current_row += 1
 
-        headers = ["No", "ペア名", "チーム名"] + [str(j+1) for j in range(len(pair_labels))] + ["順位"]
-        table_data = []
-        for idx, label in enumerate(pair_labels):
-            name = label_map.get(label, "")
-            team, players = (name.split("：", 1) if "：" in name else ("", name))
-            row = [idx + 1, players, team]
-            for j in range(len(pair_labels)):
-                row.append("×" if j == idx else "")
-            row.append("")
-            while len(row) < len(headers):
-                row.append("")
-            table_data.append(row)
-
-        df_table = pd.DataFrame(table_data, columns=headers)
-        st.dataframe(df_table, use_container_width=True)
-        league_tables_raw[league_name] = df_table
-
-        ordered_combos = generate_ordered_matches(pair_labels)
-        df_matches = pd.DataFrame(ordered_combos, columns=["ペア1", "ペア2"])
-        league_matchup_dfs[league_name] = df_matches
-
-        for match in ordered_combos:
-            match_schedule.append({"リーグ": league_name, "ペア1": match[0], "ペア2": match[1]})
-
-    except Exception as e:
-        st.error(f"{league_name}リーグの対戦表生成中にエラーが発生しました: {e}")
-        continue
-
-st.session_state["match_schedule"] = match_schedule
-st.session_state["league_pair_data"] = league_pair_data
-
-if st.button("スコアシートPDFを出力"):
-    try:
-        github_url = "https://raw.githubusercontent.com/kogaoki/tennis/main/scoresheet.pdf"
-        response = requests.get(github_url)
-        pdf_template = fitz.open(stream=response.content, filetype="pdf")
-        output_pdf = fitz.open()
-
-        coords = {
-            "no1": (92, 188), "team1": (213, 188), "p1_1": (187, 221), "p1_2": (187, 257),
-            "no2": (361, 187), "team2": (477, 187), "p2_1": (453, 221), "p2_2": (452, 257)
-        }
-
-        def get_info(code):
-            for league_df in st.session_state["league_pair_data"].values():
-                row = league_df[league_df["ペア番号"] == code]
-                if not row.empty:
-                    team = row.iloc[0]["所属"]
-                    p1 = row.iloc[0]["選手1"]
-                    p2 = row.iloc[0]["選手2"]
-                    return team, p1, p2
-            return "", "", ""
-
-        for idx, match in enumerate(st.session_state["match_schedule"]):
-            output_pdf.insert_pdf(pdf_template, from_page=0, to_page=0)
-            page = output_pdf[-1]
-
-            team1, p1_1, p1_2 = get_info(match["ペア1"])
-            team2, p2_1, p2_2 = get_info(match["ペア2"])
-
-            page.insert_text(coords["no1"], match["ペア1"], fontsize=12, fontname="helv")
-            page.insert_text(coords["team1"], team1, fontsize=12, fontname="helv")
-            page.insert_text(coords["p1_1"], p1_1, fontsize=12, fontname="helv")
-            if p1_2:
-                page.insert_text(coords["p1_2"], p1_2, fontsize=12, fontname="helv")
-
-            page.insert_text(coords["no2"], match["ペア2"], fontsize=12, fontname="helv")
-            page.insert_text(coords["team2"], team2, fontsize=12, fontname="helv")
-            page.insert_text(coords["p2_1"], p2_1, fontsize=12, fontname="helv")
-            if p2_2:
-                page.insert_text(coords["p2_2"], p2_2, fontsize=12, fontname="helv")
-
-        pdf_bytes = output_pdf.write()
-        st.download_button("PDFスコアシートをダウンロード", pdf_bytes, file_name="score_sheets.pdf", mime="application/pdf")
-
-    except Exception as e:
-        st.error(f"PDF出力中にエラーが発生しました: {e}")
+    output = BytesIO()
+    wb.save(output)
+    st.download_button("リーグ対戦表（Excel）をダウンロード", output.getvalue(), file_name="リーグ対戦表.xlsx")
