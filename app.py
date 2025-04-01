@@ -45,7 +45,7 @@ for league in league_names:
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine="xlsxwriter")
     df_league.to_excel(writer, sheet_name=f"League_{league}", index=False)
-    writer.save()
+    writer.close()
     output.seek(0)
     
     st.download_button(
